@@ -8,6 +8,7 @@
 
 import torch
 import torch.nn as nn
+from utils import trunc_normal_
 
 class PatchPartition(nn.Module):
     """
@@ -114,3 +115,74 @@ def reverse_windows_to_image(windows, window_size, image_height, image_width):
     image_tensor = windows.reshape(B, num_windows_H, num_windows_W, window_size, window_size, -1)
     image_tensor = image_tensor.permute(0, 1, 3, 2, 4, 5).reshape(B, image_height, image_width, -1)
     return image_tensor
+
+class WindowAttention(nn.Module):
+    def __init__(self, embedding_dim, window_size, num_heads, attn_drop=0., proj_drop=0.):
+        super().__init__()
+        
+        self.embedding_dim = embedding_dim
+        self.window_size = window_size
+        self.num_heads = num_heads
+        self.scale = (embedding_dim // num_heads) ** (-0.5)
+        
+        # Linear transformations
+        self.qkv = nn.Linear(self.embedding_dim, self.embedding_dim * 3)
+        self.linear = nn.Linear(self.embedding_dim, self.embedding_dim)
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.linear_drop = nn.Dropout(proj_drop)
+        
+        self.softmax = nn.Softmax(dim = -1)
+        self.init_relative_pos()
+       
+    def init_relative_pos(self):
+        """
+            Compute pair-wise relative position index for each token inside the window.
+            This function refers to the official code.
+        """
+        # Define a parameter table of relative position bias
+        num_relative_positions = (2 * self.window_size[0] - 1) * (2 * self.window_size[1] - 1)
+        self.relative_position_bias_table = nn.Parameter(torch.zeros(num_relative_positions, self.num_heads))  # 2*Wh-1 * 2*Ww-1, nH
+        
+        # Compute relative position indices
+        coords_h, coords_w = torch.meshgrid(torch.arange(self.window_size[0]), torch.arange(self.window_size[1]))
+        relative_coords = (coords_h.flatten() - coords_h.flatten().unsqueeze(1)).unsqueeze(-1)
+        relative_coords += self.window_size[0] - 1
+        relative_coords *= 2 * self.window_size[1] - 1
+        self.register_buffer("relative_position_index", relative_coords.sum(-1))  # Wh*Ww, Wh*Ww
+
+        # Initialize relative position bias
+        trunc_normal_(self.relative_position_bias_table, std=.02)
+        
+    def forward(self, x, mask=None):
+        """
+        Args:
+            x: Input features with shape of (num_windows*B, N, C)
+            mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
+        """
+        nw_B, N, C = x.shape
+        q, k, v = torch.chunk(self.qkv(x), 3, dim=-1)    # self.qkv(x) returns shape (embed * 3)
+
+        q *= self.scale
+        attn = torch.matmul(q, k.transpose(-2, -1))
+
+        relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)]
+        relative_position_bias = relative_position_bias.view(self.window_size[0] * self.window_size[1], 
+                                                            self.window_size[0] * self.window_size[1], -1)
+        relative_position_bias = relative_position_bias.permute(2, 0, 1)
+
+        attn += relative_position_bias.unsqueeze(0)
+
+        if mask is not None:
+            attn = attn.view(nw_B // mask.shape[0], mask.shape[0], self.num_heads, N, N) + \
+                                mask.unsqueeze(1).unsqueeze(0)
+            attn = attn.view(-1, self.num_heads, N, N)
+            
+            attn = self.softmax(attn)
+        else:
+            attn = self.softmax(attn)
+
+        attn = self.attn_drop(attn)
+
+        x = torch.matmul(attn, v).transpose(1, 2).reshape(nw_B, N, C)
+        x = self.linear_drop(self.linear(x))
+        return x
