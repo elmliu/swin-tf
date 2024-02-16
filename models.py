@@ -1,6 +1,6 @@
 """
       This files contains the classes to build a Swin Trnasformer (pdf: https://arxiv.org/abs/2103.14030).
-      According to our proposal, we will separately implement Cyclic Shift as functions, 
+      According to our proposal, we will separately implement Window Partition, Window Reverse, Cyclic Shift as functions, 
     and Patch Merging, Partch Partition, W-MSA, SW-MSA, Swin-Transformer Block and Swin Transformer as nn.Modules.
     
       The default values of the hyperparameters refer to the setting of the original paper.
@@ -80,3 +80,37 @@ class PatchMerging(nn.Module):
 
         # Normalization and dimension reduction
         return self.linear_reduc(self.norm(x))
+    
+def partition_into_windows(image_tensor, window_size):
+    """
+    Args:
+        image_tensor: Input image tensor with shape (B, H, W, C)
+        window_size (int): Size of the window for partitioning
+
+    Returns:
+        windows: Tensor of windows with shape (num_windows * B, window_size, window_size, C)
+    """
+    B, H, W, C = image_tensor.shape
+    
+    windows = image_tensor.unfold(1, window_size, window_size).unfold(2, window_size, window_size)
+    windows = windows.permute(0, 1, 3, 2, 4, 5).reshape(-1, window_size, window_size, C)
+    return windows
+
+def reverse_windows_to_image(windows, window_size, image_height, image_width):
+    """
+    Args:
+        windows: Tensor of windows with shape (num_windows * B, window_size, window_size, C)
+        window_size (int): Size of the window
+        image_height (int): Height of the original image
+        image_width (int): Width of the original image
+
+    Returns:
+        image_tensor: Reconstructed image tensor with shape (B, image_height, image_width, C)
+    """
+    B = windows.shape[0] // (image_height // window_size * image_width // window_size)
+    num_windows_H = image_height // window_size
+    num_windows_W = image_width // window_size
+
+    image_tensor = windows.reshape(B, num_windows_H, num_windows_W, window_size, window_size, -1)
+    image_tensor = image_tensor.permute(0, 1, 3, 2, 4, 5).reshape(B, image_height, image_width, -1)
+    return image_tensor
