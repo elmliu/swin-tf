@@ -37,6 +37,10 @@ class PatchPartition(nn.Module):
         return x
     
 class PatchMerging(nn.Module):
+    """
+          This module downsamples before each stage to reduce the resolution and adjust the number of channels to 
+        form a hierarchical design, and also saves some computation.
+    """
     def __init__(self, patch_shape, in_channels):
         """
         Args:
@@ -118,8 +122,8 @@ def reverse_windows_to_image(windows, window_size, image_height, image_width):
 
 class WindowAttention(nn.Module):
     """
-          Compute self-attention within local windows. The windows are arranged to evenly partition
-        the image in a non-overlapping manner.
+          Compute self-attention within local windows, which is similar to ViT. The windows are arranged to 
+        evenly partition the image in a non-overlapping manner.
           This module supports both `Window-based` and `Shifted-Window-based` attention, because window partition,
         including the `shifted` style, is finished before calling this module.
     """
