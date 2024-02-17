@@ -196,3 +196,122 @@ class WindowAttention(nn.Module):
         x = torch.matmul(attn, v).transpose(1, 2).reshape(nw_B, N, C)
         x = self.linear_drop(self.linear(x))
         return x
+    
+class SwinTransBlock(nn.Module):
+    """
+        Block sturcture: LayerNorm1 -> WindowAttention -> ResidualConnecttion -> 
+                            LayerNorm2 -> MLP -> ResidualConnection
+    """
+    def __init__(self, dim, input_res, num_heads, window_size=7, shift_size=0,
+                 mlp_hid_ratio=4., drop=0., attn_drop=0.):
+        super().__init__()
+        
+        self.dim = dim
+        self.input_res = input_res
+        self.num_heads = num_heads
+        self.window_size = window_size
+        self.shift_size = shift_size
+
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+        
+        self.attn = WindowAttention(
+            dim, window_size=(self.window_size, self.window_size), 
+            num_heads=num_heads,
+            attn_drop=attn_drop, 
+            proj_drop=drop)
+
+        mlp_hidden_dim = int(dim * mlp_hid_ratio)
+        self.mlp = nn.Sequential(
+            nn.Linear(dim, mlp_hidden_dim),
+            nn.GELU(),
+            nn.Dropout(drop),
+            nn.Linear(mlp_hidden_dim, dim),
+            nn.Dropout(drop)
+        )
+
+        self.attn_mask = self.get_shift_mask()
+
+    # This part refers to the official code.
+    def get_shift_mask(self):
+        if self.shift_size > 0:
+            # calculate cyclic shift attention mask for SW-MSA
+            H, W = self.input_res
+            img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
+            h_slices = (slice(0, -self.window_size),
+                        slice(-self.window_size, -self.shift_size),
+                        slice(-self.shift_size, None))
+            w_slices = (slice(0, -self.window_size),
+                        slice(-self.window_size, -self.shift_size),
+                        slice(-self.shift_size, None))
+            cnt = 0
+            for h in h_slices:
+                for w in w_slices:
+                    img_mask[:, h, w, :] = cnt
+                    cnt += 1
+
+            mask_windows = partition_into_windows(img_mask, self.window_size)  # nW, window_size, window_size, 1
+            mask_windows = mask_windows.view(-1, self.window_size * self.window_size)
+            attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
+            attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+        else:
+            # Do nothing.
+            self.attn_mask = None
+            
+        return attn_mask
+    
+    def get_shifted_windows(self, x):
+        if self.shift_size > 0:
+            # cyclic shift
+            shifted_x = torch.roll(x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+        else:
+            shifted_x = x
+        # partition windows
+        return partition_into_windows(shifted_x, self.window_size)  # nW*B, window_size, window_size, C
+
+    def rev_shifted_windows(self, attn_windows, H, W):
+        shifted_x = reverse_windows_to_image(attn_windows, self.window_size, H, W)  # B H' W' C
+
+        if self.shift_size > 0:
+            x = torch.roll(shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2))
+        else:
+            x = shifted_x
+        return x
+        
+
+    def forward(self, x):
+        H, W = self.input_res
+        B, L, C = x.shape
+
+        shortcut = x
+        """
+            Go through LayerNorm 1.
+        """
+        x = self.norm1(x).view(B, H, W, C)      
+        
+        """
+            Go througn Window based Attention (shift if necessary).
+        """
+        # Shift the windows if self.shift_size > 0, using the cyclic shift
+        x_windows = self.get_shifted_windows(x) \
+                        .view(-1, self.window_size * self.window_size, C)  # nW*B, window_size*window_size, C
+
+        # Calculate the Windows Attention
+        attn_windows = self.attn(x_windows, mask=self.attn_mask) \
+                        .view(-1, self.window_size, self.window_size, C)  
+
+        # reverse cyclic shift
+        x = self.rev_shifted_windows(attn_windows, H, W)\
+                        .view(B, H * W, C)
+        
+        """
+            Residual connection 1
+        """
+        x = shortcut + x
+
+        """
+            Go through LayerNorm 1, MLP, and residual connection 2
+        """
+        x = x + self.mlp(self.norm2(x))
+
+        return x
