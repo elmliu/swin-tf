@@ -117,6 +117,12 @@ def reverse_windows_to_image(windows, window_size, image_height, image_width):
     return image_tensor
 
 class WindowAttention(nn.Module):
+    """
+          Compute self-attention within local windows. The windows are arranged to evenly partition
+        the image in a non-overlapping manner.
+          This module supports both `Window-based` and `Shifted-Window-based` attention, because window partition,
+        including the `shifted` style, is finished before calling this module.
+    """
     def __init__(self, embedding_dim, window_size, num_heads, attn_drop=0., proj_drop=0.):
         super().__init__()
         
