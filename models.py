@@ -315,3 +315,34 @@ class SwinTransBlock(nn.Module):
         x = x + self.mlp(self.norm2(x))
 
         return x
+    
+class SwinStageLayer(nn.Module):
+    """
+        A complete Swin Transformer is consisted of four stages, and one SwinStageLayer is consisted of 2*k Swin Transformer blocks.
+        Swin Transformer blocks always appear as a combination of repeated non-shifted and shifted pattern.
+    """
+    
+    def __init__(self, dim, input_res, num_blocks, num_heads, window_size,
+                 mlp_hid_ratio=4., drop=0., attn_drop=0.):
+
+        super().__init__()
+        
+        assert num_blocks % 2 == 0, "num_blocks for SwinStageLayer has to be an even number."
+        
+        self.dim = dim
+        self.input_res = input_res
+        self.num_blocks = num_blocks
+
+        # build blocks
+        self.blocks = nn.ModuleList([
+            SwinTransBlock(dim=dim, input_res=input_res,
+                                 num_heads=num_heads, window_size=window_size,
+                                 shift_size = 0 if (i % 2 == 0) else window_size // 2,  # Repeated non-shifted and shifted pattern.
+                                 mlp_hid_ratio=mlp_hid_ratio,
+                                 drop=drop, attn_drop=attn_drop)
+            for i in range(num_blocks)])
+
+    def forward(self, x):
+        for blk in self.blocks:
+            x = blk(x)
+        return x
