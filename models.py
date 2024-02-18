@@ -16,17 +16,18 @@ class PatchPartition(nn.Module):
         Implemented using 2D convolutional layers and dimension unfolding.
     """
 
-    def __init__(self, image_size=224, patch_size=4, in_channels=3, embedding_dim=96, norm_layer=None):
+    def __init__(self, image_size=224, patch_size=4, in_channels=3, embedding_dim=96):
         super().__init__()
 
         self.image_size = (image_size, image_size)
         self.patch_size = (patch_size, patch_size)
+        self.patch_res = [image_size[0] // patch_size[0], image_size[1] // patch_size[1]]
 
         self.in_channels = in_channels
         self.embedding_dim = embedding_dim
 
         self.conv_layer = nn.Conv2d(in_channels, embedding_dim, kernel_size=patch_size, stride=patch_size)
-        self.norm = norm_layer(embedding_dim) if norm_layer is not None else None
+        self.norm = nn.LayerNorm(embedding_dim)
 
     def forward(self, x):
         x = self.conv_layer(x)              # Output shape: (N, embedding_dim, H_out, W_out)
@@ -345,4 +346,79 @@ class SwinStageLayer(nn.Module):
     def forward(self, x):
         for blk in self.blocks:
             x = blk(x)
+        return x
+    
+class SwinTransformer(nn.Module):
+    """
+        SwinTransformer architecture:
+            PatchPartition -> Four Stage Layers (PatchMerging + 2 * SwinTransBlocks) -> Linear Classifier
+    """
+    def __init__(self, img_size=224, patch_size=4, in_channels=3, n_classes=1000,
+                 embedding_dim=96, stage_blocks=[2, 2, 6, 2], num_heads=[3, 6, 12, 24],
+                 window_size=7, mlp_hid_ratio=4., attn_drop_rate=0.):
+        """
+            For ImageNet-1k, n_classes = 1000
+        """
+        super().__init__()
+
+        self.n_classes = n_classes
+        self.n_stages = len(stage_blocks)
+        self.embedding_dim = embedding_dim
+        self.n_feat = int(embedding_dim * 2 ** (self.n_stages - 1))
+        self.mlp_hid_ratio = mlp_hid_ratio
+
+        # split image into non-overlapping patches
+        self.patch_partition = PatchPartition(
+                                img_size=img_size, 
+                                patch_size=patch_size, 
+                                in_channels=in_channels, 
+                                embedding_dim=embedding_dim)
+
+        # build layers
+        self.stage_layers = nn.ModuleList()
+        patch_res = self.patch_partition.patch_res
+        
+        for lay_idx in range(self.n_stages):
+            input_res = (patch_res[0] // (2 ** lay_idx),
+                        patch_res[1] // (2 ** lay_idx))
+            
+            stage = SwinStageLayer(dim=int(embedding_dim * 2 ** lay_idx),
+                               input_res=input_res,
+                               num_blocks=stage_blocks[lay_idx],
+                               num_heads=num_heads[lay_idx],
+                               window_size=window_size,
+                               mlp_hid_ratio=self.mlp_hid_ratio,
+                               attn_drop=attn_drop_rate)
+            self.stage_layers.append(stage)
+
+        self.layer_norm = nn.LayerNorm(self.n_feat)
+        self.global_avgpool = nn.AdaptiveAvgPool1d(1)
+        self.classifier = nn.Linear(self.n_feat, n_classes) if n_classes > 0 else nn.Identity()
+
+        self.apply(self._init_weights)
+        
+    # This function refers to the official code
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+            
+    def extract_features(self, x):
+        x = self.patch_partition(x)
+
+        for stage in self.stage_layers:
+            x = stage(x)
+
+        x = self.layer_norm(x)  # B L C
+        x = self.global_avgpool(x.transpose(1, 2))  # B C 1
+        x = torch.flatten(x, 1)
+        return x
+
+    def forward(self, x):
+        x = self.extract_features(x)
+        x = self.classifier(x)
         return x
