@@ -26,7 +26,11 @@ class ImageNet64(Dataset):
         
         if self.transform:
             image = self.transform(image)
-        return image
+            
+        """
+            IMPORTANT: Original labels starts from 1. Here we minus 1 !!!
+        """
+        return image, self.labels[idx] - 1
     
 # transform = transforms.Compose([
 #     transforms.ToTensor(), 
