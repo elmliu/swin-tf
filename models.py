@@ -161,7 +161,7 @@ class WindowAttention(nn.Module):
         num_relative_positions = (2 * self.window_size[0] - 1) * (2 * self.window_size[1] - 1)
         self.relative_position_bias_table = nn.Parameter(torch.zeros(num_relative_positions, self.num_heads))  # 2*Wh-1 * 2*Ww-1, nH
         
-        # Compute relative position indices
+        # Compute relative position indices 
         coords_h, coords_w = torch.meshgrid(torch.arange(self.window_size[0]), torch.arange(self.window_size[1]))
         relative_coords = (coords_h.flatten() - coords_h.flatten().unsqueeze(1)).unsqueeze(-1)
         relative_coords += self.window_size[0] - 1
@@ -305,6 +305,12 @@ class SwinTransBlock(nn.Module):
     def forward(self, x):
         H, W = self.input_res
         B, L, C = x.shape
+        
+        # print('input_res:', self.input_res)
+        # print('x_shape:', x.shape)
+        
+        # From official code        
+        assert L == H * W, "input feature has wrong size"
 
         shortcut = x
         """
@@ -345,7 +351,7 @@ class SwinStageLayer(nn.Module):
         Swin Transformer blocks always appear as a combination of repeated non-shifted and shifted pattern.
     """
     
-    def __init__(self, dim, input_res, num_blocks, num_heads, window_size,
+    def __init__(self, dim, input_res, num_blocks, num_heads, window_size, is_last_stage,
                  mlp_hid_ratio=4., drop=0., attn_drop=0.):
 
         super().__init__()
@@ -364,10 +370,19 @@ class SwinStageLayer(nn.Module):
                                  mlp_hid_ratio=mlp_hid_ratio,
                                  drop=drop, attn_drop=attn_drop)
             for i in range(num_blocks)])
+        
+        # Create PatchMerging if this is not the last stage layer
+        if not is_last_stage:
+            self.patch_merging = PatchMerging(patch_shape=input_res, in_channels=dim)
+        else:
+            self.patch_merging = None
 
     def forward(self, x):
         for blk in self.blocks:
             x = blk(x)
+            
+        if self.patch_merging is not None:
+            x = self.patch_merging(x)
         return x
     
 class SwinTransformer(nn.Module):
@@ -409,6 +424,7 @@ class SwinTransformer(nn.Module):
                                num_blocks=stage_blocks[lay_idx],
                                num_heads=num_heads[lay_idx],
                                window_size=window_size,
+                               is_last_stage=(lay_idx == self.n_stages-1),
                                mlp_hid_ratio=self.mlp_hid_ratio,
                                attn_drop=attn_drop_rate)
             self.stage_layers.append(stage)

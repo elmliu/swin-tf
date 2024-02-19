@@ -60,7 +60,7 @@ def train(model, train_loader, test_loader):
             
 def get_model():
     model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
-                            window_size=4)  # Set window size to 4, not default value 7
+                            window_size=4, patch_size=4)  # Set window size to 4, not default value 7
     # model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])  # For debug only
     return model
 
