@@ -41,8 +41,8 @@ def train(model, train_loader, test_loader):
         for images, labels in tqdm(train_loader):
             images, labels = images.to(DEVICE), labels.to(DEVICE)
             
-            print(images.shape)
-            print(labels.shape)
+            # print(images.shape)
+            # print(labels.shape)
             
             optimizer.zero_grad()
             outputs = model(images)

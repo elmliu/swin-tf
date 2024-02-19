@@ -178,9 +178,13 @@ class WindowAttention(nn.Module):
             mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
         """
         nw_B, N, C = x.shape
-        q, k, v = torch.chunk(self.qkv(x), 3, dim=-1)    # self.qkv(x) returns shape (embed * 3)
+        # q, k, v = torch.chunk(self.qkv(x), 3, dim=-1)    # self.qkv(x) returns shape (embed * 3)
 
-        q *= self.scale
+        # Below is the official code
+        qkv = self.qkv(x).reshape(nw_B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
+
+        q = q * self.scale
         attn = torch.matmul(q, k.transpose(-2, -1))
 
         relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)]
@@ -188,7 +192,7 @@ class WindowAttention(nn.Module):
                                                             self.window_size[0] * self.window_size[1], -1)
         relative_position_bias = relative_position_bias.permute(2, 0, 1)
 
-        attn += relative_position_bias.unsqueeze(0)
+        attn = attn + relative_position_bias.unsqueeze(0)
 
         if mask is not None:
             attn = attn.view(nw_B // mask.shape[0], mask.shape[0], self.num_heads, N, N) + \
@@ -246,6 +250,10 @@ class SwinTransBlock(nn.Module):
         )
 
         self.attn_mask = self.get_shift_mask()
+        
+        # Move to cuda
+        if self.attn_mask is not None:  
+            self.attn_mask = self.attn_mask.to('cuda')
 
     # This part refers to the official code.
     def get_shift_mask(self):
