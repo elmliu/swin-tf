@@ -41,6 +41,9 @@ def train(model, train_loader, test_loader):
         for images, labels in tqdm(train_loader):
             images, labels = images.to(DEVICE), labels.to(DEVICE)
             
+            print(images.shape)
+            print(labels.shape)
+            
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -56,9 +59,9 @@ def train(model, train_loader, test_loader):
             print(f"Epoch {epoch} | Acc {acc:.4f}")
             
 def get_model():
-    # model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
-    #                         window_size=4)  # Set window size to 4, not default value 7
-    model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])
+    model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
+                            window_size=4)  # Set window size to 4, not default value 7
+    # model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])  # For debug only
     return model
 
 if __name__ == '__main__':

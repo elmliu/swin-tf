@@ -31,7 +31,7 @@ class PatchPartition(nn.Module):
         self.norm = nn.LayerNorm(embedding_dim)
 
     def forward(self, x):
-        print(x.dtype)
+        # print(x.dtype)
         x = self.conv_layer(x)              # Output shape: (N, embedding_dim, H_out, W_out)
         x = torch.flatten(x, 2)       # Flatten H, W dimensions: (N, embedding_dim, num_patches)
         x = torch.transpose(x, 1, 2)  # Transpose to have channels last: (N, num_patches, embedding_dim)
@@ -219,6 +219,13 @@ class SwinTransBlock(nn.Module):
         self.num_heads = num_heads
         self.window_size = window_size
         self.shift_size = shift_size
+
+        # Below is from the official code
+        if min(self.input_res) <= self.window_size:
+            # if window size is larger than input resolution, we don't partition windows
+            self.shift_size = 0
+            self.window_size = min(self.input_res)
+        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
 
         self.norm1 = nn.LayerNorm(dim)
         self.norm2 = nn.LayerNorm(dim)
@@ -415,7 +422,7 @@ class SwinTransformer(nn.Module):
             nn.init.constant_(m.weight, 1.0)
             
     def extract_features(self, x):
-        print(x.dtype)
+        # print(x.dtype)
         x = self.patch_partition(x)
 
         for stage in self.stage_layers:
