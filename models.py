@@ -16,12 +16,13 @@ class PatchPartition(nn.Module):
         Implemented using 2D convolutional layers and dimension unfolding.
     """
 
-    def __init__(self, image_size=224, patch_size=4, in_channels=3, embedding_dim=96):
+    def __init__(self, img_size=224, patch_size=4, in_channels=3, embedding_dim=96):
         super().__init__()
 
-        self.image_size = (image_size, image_size)
+        self.image_size = (img_size, img_size)
         self.patch_size = (patch_size, patch_size)
-        self.patch_res = [image_size[0] // patch_size[0], image_size[1] // patch_size[1]]
+        self.patch_res = [self.image_size[0] // self.patch_size[0], 
+                          self.image_size[1] // self.patch_size[1]]
 
         self.in_channels = in_channels
         self.embedding_dim = embedding_dim
@@ -30,6 +31,7 @@ class PatchPartition(nn.Module):
         self.norm = nn.LayerNorm(embedding_dim)
 
     def forward(self, x):
+        print(x.dtype)
         x = self.conv_layer(x)              # Output shape: (N, embedding_dim, H_out, W_out)
         x = torch.flatten(x, 2)       # Flatten H, W dimensions: (N, embedding_dim, num_patches)
         x = torch.transpose(x, 1, 2)  # Transpose to have channels last: (N, num_patches, embedding_dim)
@@ -98,8 +100,13 @@ def partition_into_windows(image_tensor, window_size):
     """
     B, H, W, C = image_tensor.shape
     
-    windows = image_tensor.unfold(1, window_size, window_size).unfold(2, window_size, window_size)
-    windows = windows.permute(0, 1, 3, 2, 4, 5).reshape(-1, window_size, window_size, C)
+    # windows = image_tensor.unfold(1, window_size, window_size).unfold(2, window_size, window_size)
+    # windows = windows.permute(0, 1, 3, 2, 4, 5).reshape(-1, window_size, window_size, C)
+    
+    # Use official code
+    image_tensor = image_tensor.view(B, H // window_size, window_size, W // window_size, window_size, C)
+    windows = image_tensor.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
+    
     return windows
 
 def reverse_windows_to_image(windows, window_size, image_height, image_width):
@@ -257,7 +264,7 @@ class SwinTransBlock(nn.Module):
             attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
         else:
             # Do nothing.
-            self.attn_mask = None
+            attn_mask = None
             
         return attn_mask
     
@@ -408,6 +415,7 @@ class SwinTransformer(nn.Module):
             nn.init.constant_(m.weight, 1.0)
             
     def extract_features(self, x):
+        print(x.dtype)
         x = self.patch_partition(x)
 
         for stage in self.stage_layers:

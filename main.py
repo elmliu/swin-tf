@@ -56,11 +56,12 @@ def train(model, train_loader, test_loader):
             print(f"Epoch {epoch} | Acc {acc:.4f}")
             
 def get_model():
-    model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
-                            window_size=4)  # Set window size to 4, not default value 7
+    # model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
+    #                         window_size=4)  # Set window size to 4, not default value 7
+    model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])
     return model
 
 if __name__ == '__main__':
-    model = get_model()
+    model = get_model().to(DEVICE)
     train_loader, test_loader = get_imagenet_loaders()
     train(model, train_loader, test_loader)

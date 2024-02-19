@@ -30,7 +30,7 @@ class ImageNet64(Dataset):
         """
             IMPORTANT: Original labels starts from 1. Here we minus 1 !!!
         """
-        return image, self.labels[idx] - 1
+        return torch.tensor(image, dtype=torch.float32), self.labels[idx] - 1
     
 # transform = transforms.Compose([
 #     transforms.ToTensor(), 
