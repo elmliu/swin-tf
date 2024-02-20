@@ -18,6 +18,7 @@ def test(model, test_loader):
     
     with torch.no_grad():
         for images, labels in tqdm(test_loader):
+            images, labels = images.to(DEVICE), labels.to(DEVICE)
             outputs = model(images)
             pred = torch.max(outputs, 1).cpu().flatten()
             labels = labels.cpu().flatten()

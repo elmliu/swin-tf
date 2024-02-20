@@ -4,7 +4,7 @@ imagenet_root = '/data/ljc/datasets/imagenet64/processed/'
 # Training
 epochs = 20
 lr = 1e-3
-test_ep_gap = 2
+test_ep_gap = 1
 
 bs_imagenet = 2048
 
