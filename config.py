@@ -6,7 +6,7 @@ epochs = 20
 lr = 1e-3
 test_ep_gap = 1
 
-bs_imagenet = 512
+bs_imagenet = 2048
 
 # Model size
 SF_T = {}
