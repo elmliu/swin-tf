@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from datahelpers import get_imagenet_loaders
 import config
+import numpy as np
 from tqdm import tqdm
 from models import SwinTransformer
 
@@ -18,10 +19,11 @@ def test(model, test_loader):
     
     with torch.no_grad():
         for images, labels in tqdm(test_loader):
-            images, labels = images.to(DEVICE), labels.to(DEVICE)
+            images = images.to(DEVICE)
             outputs = model(images)
-            pred = torch.max(outputs, 1).cpu().flatten()
-            labels = labels.cpu().flatten()
+            
+            pred = np.argmax(outputs.cpu(), axis=1).flatten()
+            labels = labels.flatten()
             
             total += len(labels)
             correct += (pred == labels).sum().item()
