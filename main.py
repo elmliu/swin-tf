@@ -52,14 +52,18 @@ def train(model, train_loader, test_loader):
             
             # print(images.shape)
             # print(labels.shape)
+            # print(images)
+            # print(labels)
             
             if isinstance(model, SwinForImageClassification):
-                outputs = model(images, labels = labels)
+                outputs = model(pixel_values=images, labels = labels, return_dict=True)
+                # print(outputs)
                 loss = outputs.loss
             else:
                 outputs = model(images)
                 loss = criterion(outputs, labels)
             
+            # print(loss.item())            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -83,7 +87,7 @@ def get_model():
     # official model
     # model = swin_t()
     
-    conf = SwinConfig(image_size = 64, patch_size = 4, window_size = 4)
+    conf = SwinConfig(image_size = 64, patch_size = 2, window_size = 4, num_labels=1000)
     model = SwinForImageClassification(conf)
     
     return model
