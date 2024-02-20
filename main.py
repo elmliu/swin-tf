@@ -26,7 +26,7 @@ def test(model, test_loader):
             outputs = model(images)
             
             if isinstance(model, SwinForImageClassification):
-                pred = outputs.logtis.cpu().argmax(-1).flatten()
+                pred = outputs.logits.cpu().argmax(-1).flatten()
             else:
                 _, pred = torch.max(outputs.cpu(), 1)
             # labels = labels.flatten()
