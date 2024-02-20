@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-from datahelpers import get_imagenet_loaders
+from datahelpers import *
 import config
 import numpy as np
 from tqdm import tqdm
@@ -104,5 +104,5 @@ def get_model():
 
 if __name__ == '__main__':
     model = get_model().to(DEVICE)
-    train_loader, test_loader = get_imagenet_loaders()
+    train_loader, test_loader = get_dataloaders()
     train(model, train_loader, test_loader)

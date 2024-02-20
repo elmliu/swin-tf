@@ -1,6 +1,8 @@
 import torch
+import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
+from torchvision.datasets import CocoDetection
 import os
 import config
 import numpy as np
@@ -45,3 +47,21 @@ def get_imagenet_loaders():
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, num_workers=6,shuffle=False)
     
     return train_loader, val_loader
+
+def get_coco_loaders():
+    transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+    coco_train_dataset = CocoDetection(root=config.coco_root+'/train', annFile=config.coco_root+'/annotations/train.json', transform=transform)
+    coco_val_dataset = CocoDetection(root=config.coco_root+'val', annFile=config.coco_root+'/annotations/val.json', transform=transform)
+    
+    train_loader = DataLoader(coco_train_dataset, batch_size=2, shuffle=True, collate_fn=torchvision.datasets.CocoDetection.collate_fn)
+    val_loader = DataLoader(coco_val_dataset, batch_size=2, shuffle=False, collate_fn=torchvision.datasets.CocoDetection.collate_fn)
+
+    return train_loader, val_loader
+
+def get_dataloaders():
+    if config.TASK_TYPE == config.CLS:
+        return get_imagenet_loaders()
+    else:
+        return get_coco_loaders()
