@@ -77,24 +77,28 @@ def train(model, train_loader, test_loader):
             print(f"Epoch {epoch} | Acc {acc:.4f}")
             
 def get_model():
-    # model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
-    #                         window_size=8, 
-    #                         patch_size=4, 
-    #                         embedding_dim=config.SF_SIZE['embed_dim'])
-                            
-    # model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])  # For debug only
-    
-    # official model from pytorch
-    # model = swin_t()
-    
-    # official model from huggingface
-    # conf = SwinConfig(image_size = 64, patch_size = 2, window_size = 4, num_labels=1000)
-    # model = SwinForImageClassification(conf)
-    
-    # Replace the final fully connected layer with a new one for ImageNet classification
-    model = resnet50()
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 1000)  # 1000 classes in ImageNet
+    if config.TASK_TYPE == config.CLS:
+        # model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
+        #                         window_size=8, 
+        #                         patch_size=4, 
+        #                         embedding_dim=config.SF_SIZE['embed_dim'])
+                                
+        # model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])  # For debug only
+        
+        # official model from pytorch
+        # model = swin_t()
+        
+        # official model from huggingface
+        # conf = SwinConfig(image_size = 64, patch_size = 2, window_size = 4, num_labels=1000)
+        # model = SwinForImageClassification(conf)
+        
+        # Test ResNet50
+        # Replace the final fully connected layer with a new one for ImageNet classification
+        model = resnet50()
+        num_features = model.fc.in_features
+        model.fc = nn.Linear(num_features, 1000)  # 1000 classes in ImageNet
+    else:
+        pass
     
     return model
 

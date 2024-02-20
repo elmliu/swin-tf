@@ -41,7 +41,7 @@ def get_imagenet_loaders():
     train_dataset = ImageNet64(data_dir=config.imagenet_root + '/train')
     val_dataset = ImageNet64(data_dir=config.imagenet_root + '/val')
     
-    train_loader = DataLoader(train_dataset, batch_size=config.bs_imagenet, num_workers=6,shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=config.bs_imagenet, num_workers=6,shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, num_workers=6,shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, num_workers=6,shuffle=False)
     
     return train_loader, val_loader
