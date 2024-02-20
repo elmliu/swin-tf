@@ -7,6 +7,9 @@ import numpy as np
 from tqdm import tqdm
 from models import SwinTransformer
 
+from torchvision.models import swin_t
+from transformers import SwinForImageClassification, SwinConfig
+
 DEVICE = 'cuda'
 
 """
@@ -22,10 +25,13 @@ def test(model, test_loader):
             images = images.to(DEVICE)
             outputs = model(images)
             
-            pred = np.argmax(outputs.cpu(), axis=1).flatten()
-            labels = labels.flatten()
+            if isinstance(model, SwinForImageClassification):
+                pred = outputs.logtis.cpu().argmax(-1).flatten()
+            else:
+                _, pred = torch.max(outputs.cpu(), 1)
+            # labels = labels.flatten()
             
-            total += len(labels)
+            total += labels.size(0)
             correct += (pred == labels).sum().item()
     
     top1_accuracy = 100 * correct / total
@@ -47,9 +53,14 @@ def train(model, train_loader, test_loader):
             # print(images.shape)
             # print(labels.shape)
             
+            if isinstance(model, SwinForImageClassification):
+                outputs = model(images, labels = labels)
+                loss = outputs.loss
+            else:
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+            
             optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             
@@ -62,9 +73,19 @@ def train(model, train_loader, test_loader):
             print(f"Epoch {epoch} | Acc {acc:.4f}")
             
 def get_model():
-    model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
-                            window_size=4, patch_size=4)  # Set window size to 4, not default value 7
+    # model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
+    #                         window_size=8, 
+    #                         patch_size=4, 
+    #                         embedding_dim=config.SF_SIZE['embed_dim'])
+                            
     # model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])  # For debug only
+    
+    # official model
+    # model = swin_t()
+    
+    conf = SwinConfig(image_size = 64, patch_size = 4, window_size = 4)
+    model = SwinForImageClassification(conf)
+    
     return model
 
 if __name__ == '__main__':

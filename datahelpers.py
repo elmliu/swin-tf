@@ -22,7 +22,7 @@ class ImageNet64(Dataset):
 
     def __getitem__(self, idx):
         image_file = os.path.join(self.data_dir, self.image_files[idx])
-        image = np.load(image_file) # Load image. Shape: (64*64*3). Already normalized.
+        image = np.load(image_file) # Load image. Shape: (3*64*64). Already normalized.
         
         if self.transform:
             image = self.transform(image)
