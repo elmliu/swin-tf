@@ -10,6 +10,10 @@ from models import SwinTransformer
 from torchvision.models import swin_t, resnet50
 from transformers import SwinForImageClassification, SwinConfig
 
+# Below are packages to provide object detection support
+from torchvision.models.detection import FasterRCNN
+from torchvision.models.detection.rpn import AnchorGenerator
+
 DEVICE = 'cuda'
 
 """
@@ -98,7 +102,14 @@ def get_model():
         num_features = model.fc.in_features
         model.fc = nn.Linear(num_features, 1000)  # 1000 classes in ImageNet
     else:
-        pass
+        # Choose backone model
+        backbone = SwinTransformer()    # Use default settings
+        # Define anchor generator
+        anchor_generator = AnchorGenerator(sizes=((32, 64, 128, 256, 512),), aspect_ratios=((0.5, 1.0, 2.0),))
+        # Define ROI pooler
+        roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'], output_size=7, sampling_ratio=2)
+        # Combine SwinTransformer with Faster R-CNN model
+        model = FasterRCNN(backbone, num_classes=91, rpn_anchor_generator=anchor_generator, box_roi_pool=roi_pooler)
     
     return model
 

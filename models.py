@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from utils import trunc_normal_
 
+
+
 class PatchPartition(nn.Module):
     """
         Embed the original image by cropping it into patches of size patch_size * patch_size.
