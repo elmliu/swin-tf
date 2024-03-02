@@ -3,3 +3,6 @@ torchvision
 transformers
 numpy
 tqdm
+pycocotools
+opencv-python
+lxml
