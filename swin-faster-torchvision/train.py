@@ -66,8 +66,8 @@ def train(
         elif hasattr(v, "weight") and isinstance(v.weight, nn.Parameter):
             pg1.append(v.weight)  # apply decay
 
-    optimizer = torch.optim.SGD(
-        pg0, lr=0.001, momentum=0.9, nesterov=True
+    optimizer = torch.optim.AdamW(
+        pg0, lr=0.0001, momentum=0.9, nesterov=True
     ) # BN
     
     optimizer.add_param_group(
