@@ -81,35 +81,36 @@ def train(model, train_loader, test_loader):
             print(f"Epoch {epoch} | Acc {acc:.4f}")
             
 def get_model():
-    if config.TASK_TYPE == config.CLS:
-        # model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
-        #                         window_size=8, 
-        #                         patch_size=4, 
-        #                         embedding_dim=config.SF_SIZE['embed_dim'])
-                                
-        # model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])  # For debug only
-        
-        # official model from pytorch
-        # model = swin_t()
-        
-        # official model from huggingface
-        # conf = SwinConfig(image_size = 64, patch_size = 2, window_size = 4, num_labels=1000)
-        # model = SwinForImageClassification(conf)
-        
-        # Test ResNet50
-        # Replace the final fully connected layer with a new one for ImageNet classification
-        model = resnet50()
-        num_features = model.fc.in_features
-        model.fc = nn.Linear(num_features, 1000)  # 1000 classes in ImageNet
-    else:
-        # Choose backone model
-        backbone = SwinTransformer()    # Use default settings
-        # Define anchor generator
-        anchor_generator = AnchorGenerator(sizes=((32, 64, 128, 256, 512),), aspect_ratios=((0.5, 1.0, 2.0),))
-        # Define ROI pooler
-        roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'], output_size=7, sampling_ratio=2)
-        # Combine SwinTransformer with Faster R-CNN model
-        model = FasterRCNN(backbone, num_classes=91, rpn_anchor_generator=anchor_generator, box_roi_pool=roi_pooler)
+    # if config.TASK_TYPE == config.CLS:
+    # model = SwinTransformer(img_size=64, stage_blocks=config.SF_SIZE['stage_blocks'], 
+    #                         window_size=8, 
+    #                         patch_size=4, 
+    #                         embedding_dim=config.SF_SIZE['embed_dim'])
+                            
+    # model = SwinTransformer(stage_blocks=config.SF_SIZE['stage_blocks'])  # For debug only
+    
+    # official model from pytorch
+    # model = swin_t()
+    
+    # official model from huggingface
+    # conf = SwinConfig(image_size = 64, patch_size = 2, window_size = 4, num_labels=1000)
+    # model = SwinForImageClassification(conf)
+    
+    
+    # Test ResNet50
+    # Replace the final fully connected layer with a new one for ImageNet classification
+    model = resnet50()
+    num_features = model.fc.in_features
+    model.fc = nn.Linear(num_features, 1000)  # 1000 classes in ImageNet
+    # else:
+    #     # Choose backone model
+    #     backbone = SwinTransformer()    # Use default settings
+    #     # Define anchor generator
+    #     anchor_generator = AnchorGenerator(sizes=((32, 64, 128, 256, 512),), aspect_ratios=((0.5, 1.0, 2.0),))
+    #     # Define ROI pooler
+    #     roi_pooler = torchvision.ops.MultiScaleRoIAlign(featmap_names=['0'], output_size=7, sampling_ratio=2)
+    #     # Combine SwinTransformer with Faster R-CNN model
+    #     model = FasterRCNN(backbone, num_classes=91, rpn_anchor_generator=anchor_generator, box_roi_pool=roi_pooler)
     
     return model
 

@@ -61,7 +61,4 @@ def get_coco_loaders():
     return train_loader, val_loader
 
 def get_dataloaders():
-    if config.TASK_TYPE == config.CLS:
-        return get_imagenet_loaders()
-    else:
-        return get_coco_loaders()
+    return get_imagenet_loaders()
