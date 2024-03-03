@@ -141,8 +141,8 @@ class DatasetPaths:
 
 @dataclass
 class TrainingConfig:
-    epochs: int = 15
-    batch_size: int = 6
+    epochs: int = 20
+    batch_size: int = 64
     val_eval_freq: int = 2
     exp_folder: str = 'exp'
 
